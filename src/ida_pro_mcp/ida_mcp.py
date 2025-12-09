@@ -30,9 +30,7 @@ class MCP(idaapi.plugin_t):
     wanted_name = "MCP"
     wanted_hotkey = "Ctrl-Alt-M"
 
-    # TODO: make these configurable
-    HOST = "127.0.0.1"
-    BASE_PORT = 13337
+    BASE_PORT = int(__import__("os").environ.get("IDA_MCP_PORT", "13337"))
     MAX_PORT_TRIES = 10
 
     def init(self):
@@ -55,16 +53,24 @@ class MCP(idaapi.plugin_t):
         unload_package("ida_mcp")
         if TYPE_CHECKING:
             from .ida_mcp import MCP_SERVER, IdaMcpHttpRequestHandler
+            from .ida_mcp.http import get_bind_host
         else:
             from ida_mcp import MCP_SERVER, IdaMcpHttpRequestHandler
+            from ida_mcp.http import get_bind_host
+
+        # Get bind host from config (with environment variable override)
+        host = get_bind_host()
+        if host != "127.0.0.1":
+            print(f"[MCP] WARNING: Server will listen on {host} (remotely accessible!)")
+            print(f"[MCP] Make sure you have set an authentication token in config!")
 
         for i in range(self.MAX_PORT_TRIES):
             port = self.BASE_PORT + i
             try:
                 MCP_SERVER.serve(
-                    self.HOST, port, request_handler=IdaMcpHttpRequestHandler
+                    host, port, request_handler=IdaMcpHttpRequestHandler
                 )
-                print(f"  Config: http://{self.HOST}:{port}/config.html")
+                print(f"  Config: http://{host}:{port}/config.html")
                 self.mcp = MCP_SERVER
                 break
             except OSError as e:

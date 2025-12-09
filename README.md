@@ -57,6 +57,50 @@ https://github.com/user-attachments/assets/65ed3373-a187-4dd5-a807-425dca1d8ee9
 
 _Note_: You need to load a binary in IDA before the plugin menu will show up.
 
+### 🚀 Quick Start for Cloud Deployment
+
+If you want to deploy IDA Pro on a cloud server:
+
+**方式 1: 通过 Web 配置界面（最简单）**
+
+```sh
+# 1. 在云服务器上启动 IDA Pro
+ida64 /path/to/binary.exe
+
+# 2. 在 IDA 中按 Ctrl+Alt+M 启动 MCP 服务器
+
+# 3. 在云服务器本地浏览器中打开配置页面
+# http://127.0.0.1:13337/config.html
+
+# 4. 在配置界面设置：
+#    - Network Settings: 选择 "0.0.0.0 (All interfaces)"
+#    - Authentication: 点击 "Generate Random Token"
+#    - 点击 Save，然后重启 MCP (Ctrl+Alt+M 两次)
+
+# 5. 从本地机器连接（将 TOKEN 替换为生成的 token）
+curl -H "Authorization: Bearer TOKEN" http://YOUR_SERVER_IP:13337/sse
+```
+
+**方式 2: 通过脚本部署**
+
+```sh
+# 1. Run the deployment script
+./scripts/cloud_deploy.sh
+
+# 2. Load configuration
+source .ida_mcp_env
+
+# 3. Start IDA Pro
+./scripts/start_ida_mcp.sh /path/to/binary.exe
+
+# 4. In IDA, press Ctrl+Alt+M to start the MCP server
+
+# 5. Test connection from local machine
+./scripts/test_connection.sh
+```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed cloud deployment guide.
+
 ## Prompt Engineering
 
 LLMs are prone to hallucinations and you need to be specific with your prompting. For reverse engineering the conversion between integers and bytes are especially problematic. Below is a minimal example prompt, feel free to start a discussion or open an issue if you have good results with a different prompt:
@@ -144,6 +188,33 @@ uv run idalib-mcp --host 127.0.0.1 --port 8745 path/to/executable
 ```
 
 _Note_: The `idalib` feature was contributed by [Willi Ballenthin](https://github.com/williballenthin).
+
+### 🔐 Authentication for Remote Deployments
+
+**IMPORTANT**: When deploying IDA Pro MCP on a remote server, **anyone who can access the port can control IDA Pro**. To secure your deployment:
+
+```sh
+# Generate a strong token
+TOKEN=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
+
+# Start server with authentication
+uv run ida-pro-mcp --transport http://0.0.0.0:8744/sse --auth-token "$TOKEN"
+
+# Or for headless mode
+uv run idalib-mcp --host 0.0.0.0 --port 8745 --auth-token "$TOKEN" /path/to/binary
+```
+
+Clients must include the token in the `Authorization` header:
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" http://server:8744/sse
+```
+
+For IDA plugin (running inside IDA Pro), configure authentication via:
+- Web UI: `http://localhost:13337/config.html` (set token, click Save)
+- Environment variable: `export IDA_MCP_AUTH_TOKEN="your-token"`
+
+See [AUTHENTICATION.md](AUTHENTICATION.md) for detailed security configuration guide.
+
 
 
 ## MCP Resources

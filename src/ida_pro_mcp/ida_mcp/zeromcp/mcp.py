@@ -109,7 +109,32 @@ class McpHttpRequestHandler(BaseHTTPRequestHandler):
             # Client disconnected - normal, suppress traceback
             pass
 
+    def _check_authorization(self) -> bool:
+        """Check if the request has valid Authorization header"""
+        if self.mcp_server.auth_token is None:
+            return True  # No authentication required
+        
+        auth_header = self.headers.get("Authorization", "")
+        if not auth_header:
+            self.send_error(401, "Missing Authorization header")
+            return False
+        
+        # Support both "Bearer TOKEN" and "TOKEN" formats
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+        else:
+            token = auth_header
+        
+        if token != self.mcp_server.auth_token:
+            self.send_error(403, "Invalid Authorization token")
+            return False
+        
+        return True
+
     def do_GET(self):
+        if not self._check_authorization():
+            return
+        
         match urlparse(self.path).path:
             case "/sse":
                 self._handle_sse_get()
@@ -119,6 +144,9 @@ class McpHttpRequestHandler(BaseHTTPRequestHandler):
                 self.send_error(404, "Not Found")
 
     def do_POST(self):
+        if not self._check_authorization():
+            return
+        
         # Read request body
         content_length = int(self.headers.get("Content-Length", 0))
 
@@ -229,6 +257,7 @@ class McpServer:
         self.version = version
         self.post_body_limit = 10 * 1024 * 1024
         self.cors_allowed_origins: Callable[[str], bool] | list[str] | str | None = self.cors_localhost
+        self.auth_token: str | None = None  # Authentication token (Bearer token)
         self.tools = McpRpcRegistry()
         self.resources = McpRpcRegistry()
         self.prompts = McpRpcRegistry()

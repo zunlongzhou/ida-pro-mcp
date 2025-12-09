@@ -848,6 +848,12 @@ def main():
     parser.add_argument(
         "--config", action="store_true", help="Generate MCP config JSON"
     )
+    parser.add_argument(
+        "--auth-token",
+        type=str,
+        default=None,
+        help="Authentication token for SSE/HTTP connections (highly recommended for remote deployments)",
+    )
     args = parser.parse_args()
 
     # Parse IDA RPC server argument
@@ -874,6 +880,15 @@ def main():
     if args.config:
         print_mcp_config()
         return
+
+    # Set authentication token if provided
+    if args.auth_token:
+        mcp.auth_token = args.auth_token
+        print(f"[SECURITY] Authentication enabled (token length: {len(args.auth_token)} chars)")
+    elif args.transport != "stdio":
+        print("[WARNING] Running HTTP/SSE server without authentication token!")
+        print("[WARNING] Anyone who can access this port can control IDA Pro.")
+        print("[WARNING] Use --auth-token <TOKEN> to enable authentication.")
 
     try:
         if args.transport == "stdio":

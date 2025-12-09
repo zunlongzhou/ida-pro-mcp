@@ -31,6 +31,12 @@ def main():
         "--unsafe", action="store_true", help="Enable unsafe functions (DANGEROUS)"
     )
     parser.add_argument(
+        "--auth-token",
+        type=str,
+        default=None,
+        help="Authentication token for HTTP/SSE connections (highly recommended for remote deployments)",
+    )
+    parser.add_argument(
         "input_path", type=Path, help="Path to the input file to analyze."
     )
     args = parser.parse_args()
@@ -58,6 +64,15 @@ def main():
 
     logger.debug("idalib: waiting for analysis...")
     ida_auto.auto_wait()
+
+    # Set authentication token if provided
+    if args.auth_token:
+        MCP_SERVER.auth_token = args.auth_token
+        logger.info("Authentication enabled (token length: %d chars)", len(args.auth_token))
+    else:
+        logger.warning("Running HTTP/SSE server without authentication token!")
+        logger.warning("Anyone who can access this port can control IDA Pro.")
+        logger.warning("Use --auth-token <TOKEN> to enable authentication.")
 
     # Setup signal handlers to ensure IDA database is properly closed on shutdown.
     # When a signal arrives, our handlers execute first, allowing us to close the

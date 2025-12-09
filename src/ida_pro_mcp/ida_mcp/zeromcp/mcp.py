@@ -320,9 +320,16 @@ class McpServer:
         # Only start thread after successful bind
         self._running = True
 
+        # Print server startup info
+        print("[MCP] ====================================")
+        if self.auth_token:
+            print(f"[MCP] 🔐 Auth Token: {self.auth_token}")
+            print(f"[MCP] Use: Authorization: Bearer {self.auth_token}")
+            print("[MCP] ====================================")
         print("[MCP] Server started:")
         print(f"  Streamable HTTP: http://{host}:{port}/mcp")
         print(f"  SSE: http://{host}:{port}/sse")
+        print(f"  Config (localhost only): http://127.0.0.1:{port}/config.html")
 
         def serve_forever():
             try:

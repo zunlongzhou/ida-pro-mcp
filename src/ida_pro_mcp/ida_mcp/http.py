@@ -100,11 +100,13 @@ def apply_auth_token():
     token = get_auth_token()
     if token:
         MCP_SERVER.auth_token = token
-        print(f"[MCP] Authentication enabled (token length: {len(token)} chars)")
+        print(f"[MCP] ✅ Authentication enabled")
+        print(f"[MCP] Token: {token}")
+        print(f"[MCP] Use in clients: Authorization: Bearer {token}")
     else:
-        print("[MCP] WARNING: No authentication token set!")
+        print("[MCP] ⚠️  WARNING: No authentication token set!")
         print("[MCP] Anyone who can access this port can control IDA Pro.")
-        print("[MCP] Set via config.html or environment variable IDA_MCP_AUTH_TOKEN")
+        print("[MCP] Set via: http://127.0.0.1:PORT/config.html or IDA_MCP_AUTH_TOKEN env var")
 
 
 # Apply auth token on module load
@@ -163,11 +165,14 @@ class IdaMcpHttpRequestHandler(McpHttpRequestHandler):
         """
         Prevents DNS rebinding attacks where an attacker's domain (e.g., evil.com)
         resolves to 127.0.0.1, allowing their page to read localhost resources.
+        
+        Config interface should only be accessible from localhost for security.
         """
         host = self.headers.get("Host")
         port = self.server_port
+        # Allow localhost access only, regardless of bind address
         if host not in (f"127.0.0.1:{port}", f"localhost:{port}"):
-            self.send_error(403, "Invalid Host")
+            self.send_error(403, "Config interface only accessible from localhost")
             return False
         return True
 
@@ -341,7 +346,36 @@ button:hover {
     for (let i = 0; i < 32; i++) {
       token += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    document.getElementById('auth_token').value = token;
+    const input = document.getElementById('auth_token');
+    input.value = token;
+    // Show token temporarily by changing input type
+    input.type = 'text';
+    input.select(); // Select token for easy copying
+    
+    // Show copy notification
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.textContent = '✅ Token Generated! (Copy it now)';
+    btn.style.background = '#28a745';
+    
+    // Reset button after 5 seconds
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.style.background = '';
+      input.type = 'password';
+    }, 5000);
+  }
+  
+  function toggleTokenVisibility() {
+    const input = document.getElementById('auth_token');
+    const btn = document.getElementById('toggle_token_btn');
+    if (input.type === 'password') {
+      input.type = 'text';
+      btn.textContent = '🙈 Hide';
+    } else {
+      input.type = 'password';
+      btn.textContent = '👁️ Show';
+    }
   }
   </script>
 </head>
@@ -379,10 +413,20 @@ button:hover {
             body += f'<div class="info">✅ Authentication is enabled (token length: {len(auth_token)} chars)</div>'
         
         body += """<label for="auth_token">Authorization Token:</label>
+<div style="display: flex; gap: 0.5rem;">
 <input type="password" id="auth_token" name="auth_token" placeholder="Leave empty to disable authentication" """
-        body += f'value="{html.escape(auth_token)}">' if auth_token else '>'
+        body += f'value="{html.escape(auth_token)}"' if auth_token else ''
+        body += """ style="flex: 1;">
+<button type="button" id="toggle_token_btn" onclick="toggleTokenVisibility()" style="width: auto; margin: 0.5rem 0;">👁️ Show</button>
+</div>
+<button type="button" onclick="generateToken()">🎲 Generate Random Token</button>"""
+        if auth_token:
+            body += f"""
+<div class="info" style="font-family: monospace; word-break: break-all; background: #f0f0f0; color: #333;">
+  <strong>Current Token:</strong><br>
+  <code style="user-select: all;">{html.escape(auth_token)}</code>
+</div>"""
         body += """
-<button type="button" onclick="generateToken()">🎲 Generate Random Token</button>
 <div class="info">
   <strong>Usage:</strong> Clients must include this token in the <code>Authorization</code> header:
   <br><code>Authorization: Bearer YOUR_TOKEN_HERE</code>
